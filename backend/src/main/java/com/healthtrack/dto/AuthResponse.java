@@ -5,21 +5,17 @@ public class AuthResponse {
     private String token;
     private String type = "Bearer";
     private Long id;
-    private String email;
-    private String name;
+    private String username;
     private String role;
-    private Long healthId;
     
     // Constructors
     public AuthResponse() {}
     
-    public AuthResponse(String token, Long id, String username, String name, String role, Long healthId) {
+    public AuthResponse(String token, Long id, String username, String role) {
         this.token = token;
         this.id = id;
-        this.email = username; // 使用username作为email字段
-        this.name = name;
+        this.username = username;
         this.role = role;
-        this.healthId = healthId;
     }
     
     // Getters and Setters
@@ -47,20 +43,12 @@ public class AuthResponse {
         this.id = id;
     }
     
-    public String getEmail() {
-        return email;
+    public String getUsername() {
+        return username;
     }
     
-    public void setEmail(String email) {
-        this.email = email;
-    }
-    
-    public String getName() {
-        return name;
-    }
-    
-    public void setName(String name) {
-        this.name = name;
+    public void setUsername(String username) {
+        this.username = username;
     }
     
     public String getRole() {
@@ -69,13 +57,5 @@ public class AuthResponse {
     
     public void setRole(String role) {
         this.role = role;
-    }
-    
-    public Long getHealthId() {
-        return healthId;
-    }
-    
-    public void setHealthId(Long healthId) {
-        this.healthId = healthId;
     }
 }

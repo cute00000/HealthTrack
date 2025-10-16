@@ -1,33 +1,35 @@
 # 项目排除路径
-!/BEAN_CONFLICT_FIX.md
-!/FRONTEND_CHANGES_SUMMARY.md
-!/CIRCULAR_DEPENDENCY_FIX.md
-!/JAVA_VERSION_FIX.md
+!/read/BEAN_CONFLICT_FIX.md
+!/read/FRONTEND_CHANGES_SUMMARY.md
+!/read/CIRCULAR_DEPENDENCY_FIX.md
+!/read/JAVA_VERSION_FIX.md
 
-!/COMPILATION_FIXES.md
+!/read/COMPILATION_FIXES.md
 
-!/DATABASE_TYPE_MISMATCH_FIX.md
+!/read/DATABASE_TYPE_MISMATCH_FIX.md
 
-!/FIELD_CONSISTENCY_FIX.md
+!/read/FIELD_CONSISTENCY_FIX.md
 
-!/FIXES_SUMMARY.md
+!/read/FIXES_SUMMARY.md
 
-!/FRONTEND_ROUTING_ISSUE_FIX.md
-!/MYSQL_CONFIGURATION_GUIDE.md
+!/read/FRONTEND_ROUTING_ISSUE_FIX.md
+!/read/MYSQL_CONFIGURATION_GUIDE.md
 
-!/MYSQL_CONNECTION_FIX.md
+!/read/MYSQL_CONNECTION_FIX.md
 
-!/MYSQL_VERSION_FIX.md
+!/read/MYSQL_VERSION_FIX.md
 
-!/QUICKSTART.md
+!/read/QUICKSTART.md
 
-!/REPOSITORY_MISMATCH_FIX.md
+!/read/REPOSITORY_MISMATCH_FIX.md
 
-!/run-backend.sh
+!/read/run-backend.sh
 
-!/start-backend.sh
-!/test-frontend.html
+!/read/start-backend.sh
+!/read/test-frontend.html
 
-!/start-frontend.sh
+!/read/start-frontend.sh
 
 !/.idea/
+!/read/
+

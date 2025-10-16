@@ -17,16 +17,33 @@ public class UnifiedUserDetailsService implements UserDetailsService {
     @Autowired
     private DoctorService doctorService;
     
+    // 存储当前登录请求的用户类型
+    private static final ThreadLocal<String> currentUserType = new ThreadLocal<>();
+    
+    public static void setCurrentUserType(String userType) {
+        currentUserType.set(userType);
+    }
+    
+    public static void clearCurrentUserType() {
+        currentUserType.remove();
+    }
+    
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        // 首先尝试在普通用户中查找
-        try {
-            return userService.loadUserByUsername(username);
-        } catch (UsernameNotFoundException e) {
-            // 如果普通用户中没找到，再在医生中查找
+        String userType = currentUserType.get();
+        
+        if ("DOCTOR".equals(userType)) {
+            // 如果指定了医生类型，只查找医生
             try {
                 return doctorService.loadUserByUsername(username);
-            } catch (UsernameNotFoundException ex) {
+            } catch (UsernameNotFoundException e) {
+                throw new UsernameNotFoundException("Doctor not found with username: " + username);
+            }
+        } else {
+            // 默认查找普通用户
+            try {
+                return userService.loadUserByUsername(username);
+            } catch (UsernameNotFoundException e) {
                 throw new UsernameNotFoundException("User not found with username: " + username);
             }
         }

@@ -30,41 +30,45 @@ public class AuthService {
     private JwtUtils jwtUtils;
     
     public AuthResponse login(LoginRequest loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(
-                loginRequest.getUsername(),
-                loginRequest.getPassword()
-            )
-        );
-        
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateJwtToken(authentication);
-        
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        
-        // 根据用户类型创建不同的响应
-        if (userDetails instanceof User) {
-            User user = (User) userDetails;
-            return new AuthResponse(
-                jwt,
-                user.getId(),
-                user.getUsername(),
-                user.getName(),
-                "USER",
-                user.getHealthId()
+        try {
+            // 设置当前线程的用户类型，用于UnifiedUserDetailsService判断
+            UnifiedUserDetailsService.setCurrentUserType(loginRequest.getUserType());
+            
+            Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                    loginRequest.getUsername(),
+                    loginRequest.getPassword()
+                )
             );
-        } else if (userDetails instanceof Doctor) {
-            Doctor doctor = (Doctor) userDetails;
-            return new AuthResponse(
-                jwt,
-                doctor.getId(),
-                doctor.getUsername(),
-                doctor.getName(),
-                "DOCTOR",
-                doctor.getLicenseId() // 医生使用licenseId作为healthId
-            );
-        } else {
-            throw new RuntimeException("Unknown user type");
+            
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            String jwt = jwtUtils.generateJwtToken(authentication);
+            
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            
+            // 根据用户类型创建不同的响应
+            if (userDetails instanceof User) {
+                User user = (User) userDetails;
+                return new AuthResponse(
+                    jwt,
+                    user.getId(),
+                    user.getUsername(),
+                    "USER"
+                );
+            } else if (userDetails instanceof Doctor) {
+                Doctor doctor = (Doctor) userDetails;
+                return new AuthResponse(
+                    jwt,
+                    doctor.getId(),
+                    doctor.getUsername(),
+                    "DOCTOR"
+                );
+            } else {
+                throw new RuntimeException("Unknown user type");
+            }
+        } finally {
+            // 清理ThreadLocal，避免内存泄漏
+            UnifiedUserDetailsService.clearCurrentUserType();
         }
     }
     
@@ -87,13 +91,7 @@ public class AuthService {
         }
         
         // 创建用户（简化版本，只使用用户名和密码）
-        User user = new User();
-        user.setUsername(registerRequest.getUsername());
-        user.setPassword(registerRequest.getPassword());
-        // 可选字段设置为null或默认值
-        user.setName(registerRequest.getName());
-        user.setHealthId(registerRequest.getHealthId());
-        user.setPhone(registerRequest.getPhone());
+        User user = new User(registerRequest.getUsername(), registerRequest.getPassword());
         
         User savedUser = userService.createUser(user);
         
@@ -108,14 +106,7 @@ public class AuthService {
         }
         
         // 创建医生（简化版本，只使用用户名和密码）
-        Doctor doctor = new Doctor();
-        doctor.setUsername(registerRequest.getUsername());
-        doctor.setPassword(registerRequest.getPassword());
-        // 可选字段设置为null或默认值
-        doctor.setLicenseId(registerRequest.getLicenseId());
-        doctor.setName(registerRequest.getName());
-        doctor.setPhone(registerRequest.getPhone());
-        doctor.setSpecialization(registerRequest.getSpecialization());
+        Doctor doctor = new Doctor(registerRequest.getUsername(), registerRequest.getPassword());
         
         Doctor savedDoctor = doctorService.createDoctor(doctor);
         
