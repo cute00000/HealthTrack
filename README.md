@@ -300,7 +300,7 @@ npm install
 npm run dev
 ```
 
-前端服务将在 `http://localhost:5173` 启动
+前端服务将在 `http://localhost:3001` 启动
 
 ## 系统特性
 
@@ -314,6 +314,231 @@ npm run dev
 - 注册时只需提供：用户名、密码、用户类型
 - 其他信息（姓名、健康卡号、手机号等）为可选字段
 - 支持后续完善个人信息
+
+## 登录注册功能实现逻辑
+
+### 注册功能实现
+
+#### 1. 前端注册流程
+```javascript
+// Register.vue
+const handleRegister = async () => {
+  // 1. 表单验证
+  await registerFormRef.value.validate()
+  
+  // 2. 准备注册数据
+  const registerData = {
+    username: registerForm.username,
+    password: registerForm.password,
+    userType: registerForm.userType  // USER 或 DOCTOR
+  }
+  
+  // 3. 调用注册API
+  const response = await authStore.register(registerData)
+  
+  // 4. 根据前端选择的用户类型跳转
+  if (registerForm.userType === 'DOCTOR') {
+    router.push('/doctor-dashboard')
+  } else {
+    router.push('/dashboard')
+  }
+}
+```
+
+#### 2. 后端注册处理
+```java
+// AuthService.java
+public AuthResponse register(RegisterRequest registerRequest) {
+    String userType = registerRequest.getUserType();
+    
+    if ("USER".equals(userType)) {
+        return registerUser(registerRequest);
+    } else if ("DOCTOR".equals(userType)) {
+        return registerDoctor(registerRequest);
+    } else {
+        throw new IllegalArgumentException("Invalid user type: " + userType);
+    }
+}
+
+private AuthResponse registerUser(RegisterRequest registerRequest) {
+    // 1. 检查用户名是否已存在
+    if (userService.existsByUsername(registerRequest.getUsername())) {
+        throw new RuntimeException("Username is already taken!");
+    }
+    
+    // 2. 创建用户（只使用用户名和密码）
+    User user = new User(registerRequest.getUsername(), registerRequest.getPassword());
+    
+    // 3. 保存到数据库
+    User savedUser = userService.createUser(user);
+    
+    // 4. 自动登录并返回JWT token
+    return login(new LoginRequest(registerRequest.getUsername(), 
+                                 registerRequest.getPassword(), 
+                                 registerRequest.getUserType()));
+}
+```
+
+### 登录功能实现
+
+#### 1. 前端登录流程
+```javascript
+// Login.vue
+const handleLogin = async () => {
+  // 1. 表单验证
+  await loginFormRef.value.validate()
+  
+  // 2. 调用登录API
+  await authStore.login(loginForm)
+  
+  // 3. 根据前端选择的用户类型跳转
+  if (loginForm.userType === 'DOCTOR') {
+    router.push('/doctor-dashboard')
+  } else {
+    router.push('/dashboard')
+  }
+}
+```
+
+#### 2. 后端登录处理
+```java
+// AuthService.java
+public AuthResponse login(LoginRequest loginRequest) {
+    try {
+        // 1. 设置当前线程的用户类型（关键步骤）
+        UnifiedUserDetailsService.setCurrentUserType(loginRequest.getUserType());
+        
+        // 2. Spring Security认证
+        Authentication authentication = authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(
+                loginRequest.getUsername(),
+                loginRequest.getPassword()
+            )
+        );
+        
+        // 3. 生成JWT token
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String jwt = jwtUtils.generateJwtToken(authentication);
+        
+        // 4. 根据用户类型返回响应
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        if (userDetails instanceof User) {
+            User user = (User) userDetails;
+            return new AuthResponse(jwt, user.getId(), user.getUsername(), "USER");
+        } else if (userDetails instanceof Doctor) {
+            Doctor doctor = (Doctor) userDetails;
+            return new AuthResponse(jwt, doctor.getId(), doctor.getUsername(), "DOCTOR");
+        }
+    } finally {
+        // 5. 清理ThreadLocal，避免内存泄漏
+        UnifiedUserDetailsService.clearCurrentUserType();
+    }
+}
+```
+
+### 身份识别机制
+
+#### ThreadLocal机制实现
+```java
+// UnifiedUserDetailsService.java
+public class UnifiedUserDetailsService implements UserDetailsService {
+    
+    // 存储当前登录请求的用户类型
+    private static final ThreadLocal<String> currentUserType = new ThreadLocal<>();
+    
+    public static void setCurrentUserType(String userType) {
+        currentUserType.set(userType);
+    }
+    
+    public static void clearCurrentUserType() {
+        currentUserType.remove();
+    }
+    
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        String userType = currentUserType.get();
+        
+        if ("DOCTOR".equals(userType)) {
+            // 只在医生表中查找
+            return doctorService.loadUserByUsername(username);
+        } else {
+            // 只在用户表中查找
+            return userService.loadUserByUsername(username);
+        }
+    }
+}
+```
+
+### 数据流转过程
+
+#### 注册数据流
+```
+前端Register.vue 
+    ↓ (POST /api/auth/register)
+AuthController.registerUser()
+    ↓
+AuthService.register()
+    ↓ (根据userType)
+AuthService.registerUser() 或 registerDoctor()
+    ↓
+UserService.createUser() 或 DoctorService.createDoctor()
+    ↓
+UserRepository.save() 或 DoctorRepository.save()
+    ↓
+数据库存储
+    ↓
+自动登录返回JWT token
+    ↓
+前端跳转到对应Dashboard
+```
+
+#### 登录数据流
+```
+前端Login.vue
+    ↓ (POST /api/auth/login)
+AuthController.authenticateUser()
+    ↓
+AuthService.login()
+    ↓ (设置ThreadLocal)
+UnifiedUserDetailsService.setCurrentUserType()
+    ↓
+Spring Security认证
+    ↓ (根据ThreadLocal中的userType)
+UnifiedUserDetailsService.loadUserByUsername()
+    ↓ (精确查找)
+UserService 或 DoctorService
+    ↓
+返回UserDetails
+    ↓
+生成JWT token
+    ↓
+返回AuthResponse
+    ↓
+前端跳转到对应Dashboard
+```
+
+### 关键技术点
+
+#### 1. **同名用户区分**
+- 使用ThreadLocal存储用户类型
+- 在认证前设置用户类型
+- 根据用户类型精确查找对应表
+
+#### 2. **JWT Token管理**
+- 使用HS512算法，密钥长度512位以上
+- Token包含用户ID、用户名等信息
+- 前端自动在请求头中添加Authorization
+
+#### 3. **前端状态管理**
+- 使用Pinia管理认证状态
+- 自动保存token到localStorage
+- 根据用户类型决定页面跳转
+
+#### 4. **安全机制**
+- Spring Security提供认证框架
+- BCrypt密码加密
+- CORS跨域配置
+- JWT token过期机制
 
 ## 使用说明
 
@@ -458,12 +683,3 @@ logging:
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 打开 Pull Request
 
-## 联系方式
-
-如有问题或建议，请通过以下方式联系：
-- 邮箱: [your-email@example.com]
-- 项目Issues: [GitHub Issues链接]
-
----
-
-**注意**: 这是一个教学项目，生产环境使用前请进行充分的安全评估和测试。
