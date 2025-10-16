@@ -543,7 +543,7 @@ UserService 或 DoctorService
 ## 使用说明
 
 ### 1. 访问应用
-打开浏览器访问 `http://localhost:5173`
+打开浏览器访问 `http://localhost:3001`
 
 ### 2. 注册用户
 - 点击"注册"按钮
