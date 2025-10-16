@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>前端测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>HealthTrack 前端测试页面</h1>
+    
+    <div class="test-section">
+        <h2>服务器状态检查</h2>
+        <div id="status-container">
+            <div class="info">正在检查服务器状态...</div>
+        </div>
+        <button onclick="checkStatus()">重新检查</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>页面测试</h2>
+        <p>点击下面的按钮来测试不同的页面：</p>
+        <button onclick="testPage('/')">首页 (重定向到登录)</button>
+        <button onclick="testPage('/login')">登录页面</button>
+        <button onclick="testPage('/register')">注册页面</button>
+        <button onclick="testPage('/dashboard')">用户仪表板</button>
+        <button onclick="testPage('/doctor-dashboard')">医生仪表板</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>页面预览</h2>
+        <iframe id="page-preview" src="http://localhost:3000"></iframe>
+    </div>
+
+    <script>
+        async function checkStatus() {
+            const container = document.getElementById('status-container');
+            container.innerHTML = '<div class="info">正在检查服务器状态...</div>';
+            
+            try {
+                // 检查前端服务器
+                const frontendResponse = await fetch('http://localhost:3000');
+                const frontendStatus = frontendResponse.ok ? 'success' : 'error';
+                const frontendText = frontendResponse.ok ? '前端服务器运行正常' : '前端服务器异常';
+                
+                // 检查后端服务器
+                let backendStatus = 'error';
+                let backendText = '后端服务器异常';
+                try {
+                    const backendResponse = await fetch('http://localhost:8001/api/auth/test', {
+                        method: 'GET',
+                        mode: 'no-cors'
+                    });
+                    backendStatus = 'success';
+                    backendText = '后端服务器运行正常';
+                } catch (e) {
+                    // 尝试检查端口
+                    const response = await fetch('http://localhost:8001', { mode: 'no-cors' });
+                    if (response.type !== 'error') {
+                        backendStatus = 'success';
+                        backendText = '后端服务器运行正常';
+                    }
+                }
+                
+                container.innerHTML = `
+                    <div class="${frontendStatus}">${frontendText}</div>
+                    <div class="${backendStatus}">${backendText}</div>
+                `;
+            } catch (error) {
+                container.innerHTML = `<div class="error">检查失败: ${error.message}</div>`;
+            }
+        }
+        
+        function testPage(path) {
+            const iframe = document.getElementById('page-preview');
+            iframe.src = `http://localhost:3000${path}`;
+        }
+        
+        // 页面加载时自动检查状态
+        window.onload = checkStatus;
+    </script>
+</body>
+</html>
